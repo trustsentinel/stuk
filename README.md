@@ -16,6 +16,13 @@ Modern Go implementation of SSH access management using port knocking and MFA/TO
 
 ## Architecture
 
+![stuk architecture](resources/stuk-architecture.png)
+
+A client obtains a time-based token (e.g. Google Authenticator), then knocks the
+firewall with `stuk <token>`. The **supervisor** verifies the token against the
+serverless key repository (REST) and provisions temporary SSH keys to the target
+servers (A, B) over the internal network — access that expires automatically.
+
 ```
 ┌─────────┐     Knock      ┌────────────┐     Auth      ┌─────────────┐
 │ Client  │ ─────────────> │ Supervisor │ ───────────> │ SSH Servers │
