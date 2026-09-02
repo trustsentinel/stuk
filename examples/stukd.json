@@ -1,0 +1,13 @@
+{
+  "bind_addr": "0.0.0.0",
+  "knock_ports": [4000, 4001, 4002],
+  "auth_port": 4100,
+  "window_seconds": 10,
+  "ttl_seconds": 300,
+  "issuer": "stuk",
+  "totp_secret": "REPLACE_WITH_BASE32_SECRET",
+  "totp_window": 1,
+  "grant_mode": "log",
+  "grant_cmd": "",
+  "revoke_cmd": ""
+}
