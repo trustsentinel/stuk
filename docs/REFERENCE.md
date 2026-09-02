@@ -1,37 +1,37 @@
-# stuk — reference & clean-room policy
+# stuk — origin, contents & modernization
 
-`trustsentinel/stuk` is a **clean-room Go rewrite** of a port-knocking SSH access
-manager. It is NOT a code import.
+`trustsentinel/stuk` is a **port-knocking SSH access manager**. This repository now
+contains the **sanitized original implementation** imported from
+[bluebycode/stuk](https://github.com/bluebycode/stuk) (2019), plus a Go rewrite
+scaffold that will grow alongside it.
 
-## Original reference (read-only)
+## Layout
 
-- **[bluebycode/stuk](https://github.com/bluebycode/stuk)** (2019, Ruby/Python) —
-  port-knocking SSH access manager with automatic SSH key provisioning and
-  MFA/TOTP + U2F. Original hackathon prototype (CyberCamp 2019).
+- `client/` — Python port-knocking client (`pnock.py`, `stuk.py`, `crypto.py`)
+- `supervisor/` — Python supervisor daemon (knock listener → SSH provisioning)
+- `auth/` — Ruby on Rails auth / dashboard server
+- `documentacion/` — original docs (Spanish; translate → English, see MIGRATION Phase 4)
+- `docs/legacy-README.md` — the original project README
+- `pkg/crypto/totp.go`, `go.mod` — start of the Go rewrite (`cmd/` to be added, Phase 5)
 
-We treat it as **read-only reference**: its design and logic inform this rewrite,
-but its git history is **deliberately not imported**.
+## Sanitization on import (2026-09-02)
 
-## Why clean-room (not imported)
+The original was **public since 2018** and contained committed secrets. On import,
+ALL of the following were removed / scrubbed, and a full `gitleaks` scan is clean:
 
-`bluebycode/stuk` has been **public since 2018** and its history contains committed
-secrets — a Rails `master.key`, a Devise signing secret, and private keys including
-`infrastructure/keys/cybercamp.pem`. Those are considered **compromised** (long
-public) and must never enter this repository. A full-history `gitleaks` scan is
-recorded in the migration's scan reports.
+- Removed: `auth/config/master.key`, `auth/config/credentials.yml.enc`,
+  `auth/certs/localhost.{key,crt}`, `client/tests/.keys/*.pem`,
+  `infrastructure/keys/cybercamp.pem`
+- Scrubbed: commented Devise `secret_key` in `auth/config/initializers/devise.rb`;
+  PII in a `supervisor/supervisor.py` docstring (real email + SSH public key + internal IP)
+- Removed: hackathon presentation PDFs
 
-Importing-then-scrubbing would drag that history along; a clean-room rewrite avoids
-it entirely.
+> ⚠️ Those original keys have been public since 2018 — treat as **compromised**.
+> Rotate/revoke anything still live (esp. the CyberCamp deploy key) on the source side.
 
-## What to carry over (concepts, re-implemented in Go)
+## Modernization targets (Phase 5)
 
-- Port-knock sequence design and the knock-daemon → SSH-grant flow
-- TOTP/2FA enrollment + verification (root scaffold already has `pkg/crypto/totp.go`)
-- Temporary SSH key provisioning with expiry
-- Supervisor/agent model for managing access on remote hosts
-
-## What to modernize (see MIGRATION.md Phase 5)
-
-- U2F → WebAuthn / passkeys
-- Keys → ed25519, hardware-backed where available
-- GitHub Actions CI with `govulncheck` + `gosec`
+- Add `cmd/stuk` entrypoint; port the knock→grant flow to Go
+- TOTP/2FA (scaffold has `pkg/crypto/totp.go`); U2F → WebAuthn/passkeys
+- ed25519, hardware-backed keys; GitHub Actions CI + `govulncheck` + `gosec`
+- Translate `documentacion/` ES→EN

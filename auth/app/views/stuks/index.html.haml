@@ -1,0 +1,24 @@
+.stuk-body
+  .stuk-container
+    .row
+      .col-2
+        - if current_user.otp_required_for_login
+          =link_to('Desactivar 2FA', uninstall_gauth_stuks_path, class: 'btn btn-danger', style: 'width: 200px')
+        - else
+          = link_to('Activar 2FA', install_gauth_stuks_path, class: 'btn btn-success', style: 'width: 200px')
+        = link_to('Descargar cliente', download_stuk_client_path, class: 'btn btn-primary', style: 'width: 200px')
+
+      .col-8
+        %h1.text-center=current_user.email
+        %h3.text-center=current_user.grade
+      .col-2
+        = link_to(destroy_user_session_path, method: :delete, class: 'btn btn-secondary my-search-form') do
+          Salir
+    %br
+    %h2 Máquinas disponibles:
+    %br
+    .row
+      - @machines.each do |machine|
+        .col-4
+          = link_to image_tag(machine.image_src), generate_config_path(machine)
+          %h4= machine.name
