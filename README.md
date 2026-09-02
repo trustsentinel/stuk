@@ -1,146 +1,88 @@
-# Stuk - Secure SSH Access Manager
+# Stuk — Secure SSH Access Manager
 
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Modern Go implementation of SSH access management using port knocking and MFA/TOTP authentication.
+SSH access management using **port knocking** and **TOTP/2FA**. SSH stays closed
+until a client sends the right knock sequence and a valid time-based code — then
+access is granted temporarily and revoked automatically.
 
 ## Features
 
-- 🔐 **Port Knocking** - Secure knock sequence before SSH access
-- 🔑 **TOTP/2FA** - Time-based one-time password authentication
-- ⏱️ **Temporary Access** - Automatic SSH key provisioning with expiration
-- 🚀 **Zero Dependencies** - Single binary deployment
-- 📦 **Docker Ready** - Containerized deployment
-- 🔒 **Security First** - Type-safe Go implementation
+- 🔐 **Port knocking** — a secret knock sequence before SSH is reachable
+- 🔑 **TOTP/2FA** — time-based one-time-password verification
+- ⏱️ **Temporary access** — grants expire and auto-revoke after a TTL
+- 🧩 **Pluggable grants** — log (dry run) or script (iptables / AuthorizedKeysCommand)
+- 🚀 **Single static binary** — daemon (`stukd`) + client (`stuk`)
 
 ## Architecture
 
 ![stuk architecture](resources/stuk-architecture.png)
 
-A client obtains a time-based token (e.g. Google Authenticator), then knocks the
-firewall with `stuk <token>`. The **supervisor** verifies the token against the
-serverless key repository (REST) and provisions temporary SSH keys to the target
-servers (A, B) over the internal network — access that expires automatically.
+A client obtains a time-based token (e.g. Google Authenticator), then knocks with
+`stuk`. The **daemon** (`stukd`) verifies the TOTP code and provisions temporary
+access to the target servers — access that expires automatically.
 
 ```
 ┌─────────┐     Knock      ┌────────────┐     Auth      ┌─────────────┐
-│ Client  │ ─────────────> │ Supervisor │ ───────────> │ SSH Servers │
-└─────────┘   TOTP Token   └────────────┘    Grant      └─────────────┘
-                                              Access
+│ Client  │ ─────────────> │   stukd    │ ───────────> │ SSH Servers │
+└─────────┘   TOTP token   └────────────┘  Grant (TTL)  └─────────────┘
 ```
 
-## Quick Start
+## Quick start
 
-### Installation
+### Install
+```bash
+go install github.com/trustsentinel/stuk/cmd/stukd@latest   # daemon
+go install github.com/trustsentinel/stuk/cmd/stuk@latest    # client
+```
+
+### Run the daemon
+```bash
+cp examples/stukd.json stukd.json      # set totp_secret to a base32 secret
+stukd -config stukd.json
+```
+
+### Knock + authenticate (client)
+```bash
+stuk -host SERVER -ports 4000,4001,4002 -auth-port 4100 \
+     -secret YOUR_BASE32_TOTP_SECRET -pubkey "ssh-ed25519 AAAA..."
+```
+The client sends the knock sequence, then a TOTP-authenticated request. On
+success the daemon grants access for the configured TTL and revokes it
+automatically. Full guide: [docs/go-mvp.md](docs/go-mvp.md).
+
+## Try it end-to-end (Docker)
+
+A runnable demo — a gated `sshd` gateway plus `stukd`, with SSH firewalled closed
+by default — lives in [`deploy/compose/`](deploy/compose):
 
 ```bash
-go install github.com/trustsentinel/stuk/cmd/client@latest
-go install github.com/trustsentinel/stuk/cmd/supervisor@latest
+cd deploy/compose && ./test-e2e.sh
 ```
-
-### Using Docker
-
-```bash
-docker pull trustsentinel/stuk:latest
-
-# Run client
-docker run trustsentinel/stuk:latest stuk-client \
-  --token 123456 \
-  --secret YOUR_SECRET \
-  --host server.example.com
-
-# Run supervisor
-docker run -d \
-  -p 7000-9000:7000-9000 \
-  trustsentinel/stuk:latest stuk-supervisor
-```
-
-## Usage
-
-### Client
-
-Generate TOTP token using Google Authenticator or similar app, then:
-
-```bash
-stuk-client \
-  --token 123456 \
-  --secret YOUR_TOTP_SECRET \
-  --host target.example.com \
-  --ports 7000,8000,9000
-```
-
-Or using environment variables:
-
-```bash
-export STUK_SECRET=YOUR_TOTP_SECRET
-stuk-client --token 123456 --host target.example.com
-```
-
-### Supervisor
-
-Run the supervisor daemon on your infrastructure:
-
-```bash
-stuk-supervisor \
-  --listen 0.0.0.0:7000 \
-  --ports 7000,8000,9000 \
-  --keydir /etc/stuk/keys \
-  --duration 5m
-```
+It proves the whole flow: **SSH blocked → knock + TOTP → SSH allowed → auto-revoked.**
 
 ## Configuration
 
-### Port Knocking Sequence
+The daemon reads a JSON config (see [`examples/stukd.json`](examples/stukd.json)):
 
-Default sequence: `7000,8000,9000`
-
-Customize with `--ports` flag:
-
-```bash
---ports 1234,5678,9012
-```
-
-### Access Duration
-
-Default: 5 minutes
-
-Customize with `--duration` flag:
-
-```bash
---duration 10m
-```
+| Key | Meaning |
+|---|---|
+| `knock_ports` | ordered UDP knock sequence |
+| `auth_port` | port that receives the TOTP auth packet |
+| `window_seconds` | max time to complete the sequence |
+| `ttl_seconds` | how long access stays open |
+| `totp_secret` | base32 TOTP secret |
+| `grant_mode` | `log` (dry run) or `script` (runs `grant_cmd` / `revoke_cmd` with `{ip}` / `{pubkey}`) |
 
 ## Development
-
-### Build from Source
-
 ```bash
-git clone https://github.com/trustsentinel/stuk.git
-cd stuk
-
-# Build client
-go build -o stuk-client ./cmd/client
-
-# Build supervisor
-go build -o stuk-supervisor ./cmd/supervisor
-```
-
-### Run Tests
-
-```bash
-# Run all tests
+git clone https://github.com/trustsentinel/stuk.git && cd stuk
+go build ./cmd/stukd ./cmd/stuk
 go test ./...
-
-# Run with coverage
-go test -cover ./...
-
-# Run specific package
-go test ./internal/knock
 ```
 
-### Project Structure
-
+### Project structure
 ```
 stuk/
 ├── cmd/
@@ -150,62 +92,30 @@ stuk/
 │   ├── knock/          # ordered knock-sequence detection + senders
 │   ├── grant/          # access provisioning (log/script) + TTL auto-revoke
 │   └── config/         # daemon JSON config
-├── pkg/
-│   └── crypto/         # TOTP (pquerna/otp)
-├── deploy/compose/     # runnable end-to-end Docker Compose demo
+├── pkg/crypto/         # TOTP (pquerna/otp)
+├── deploy/compose/     # runnable end-to-end Docker demo
 ├── docs/               # design notes (docs/design) + Go MVP guide
-├── examples/           # example stukd.json
-├── go.mod
-└── README.md
+└── examples/           # example stukd.json
 ```
 
-## Security Considerations
+## How it works
+1. Client knocks the ports in order (UDP). A wrong port or a slow knock resets progress.
+2. On the full sequence, the source is *armed* for `window_seconds`.
+3. Client sends the TOTP code to `auth_port`; a valid code → temporary grant.
+4. After `ttl_seconds`, access is revoked automatically.
 
-- 🔒 Always use strong TOTP secrets (minimum 160 bits)
-- 🔐 Enable firewall rules to only allow supervisor
-- ⏱️ Set appropriate access durations (5-15 minutes recommended)
-- 🔑 Rotate SSH keys regularly
-- 📝 Monitor supervisor logs for suspicious activity
-- 🚫 Never expose knock ports to public internet without firewall
-
-## How It Works
-
-1. **Setup**: User enrolls with TOTP (Google Authenticator)
-2. **Knock**: Client sends knock sequence to supervisor
-3. **Validate**: Supervisor validates TOTP token
-4. **Grant**: Supervisor temporarily adds SSH key to authorized_keys
-5. **Access**: User connects via SSH within time window
-6. **Expire**: SSH key automatically removed after duration
-
-## Performance
-
-- **Knock latency**: < 500ms for 3-port sequence
-- **TOTP validation**: < 1ms
-- **Memory footprint**: ~8MB (client), ~15MB (supervisor)
-- **Binary size**: ~8MB (static compilation)
-
-## Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass (`go test ./...`)
-5. Submit a pull request
+## Security notes
+- Use a strong base32 TOTP secret; never commit real secrets.
+- Keep knock ports off the public internet where possible.
+- Prefer short TTLs (5–15 min) and short-lived SSH certificates over long-lived keys.
+- **Roadmap:** link-layer capture so knock ports stay fully closed (true stealth),
+  encrypted auth channel, per-user secrets, and SSH-CA short-lived certificates —
+  see [TASKS](https://github.com/trustsentinel) / `docs/`.
 
 ## License
-
-MIT License - see [LICENSE](LICENSE) file
+MIT — see [LICENSE](LICENSE).
 
 ## Acknowledgments
-
-Original Python implementation by [@vrandkode](https://github.com/vrandkode)
-
-Modernized and rewritten in Go for improved security and performance.
-
-## Support
-
-- 🐛 Issues: [GitHub Issues](https://github.com/trustsentinel/stuk/issues)
-- 📧 Email: github.com/trustsentinel
-- 💬 Discussions: [GitHub Discussions](https://github.com/trustsentinel/stuk/discussions)
+Originally prototyped by [@bluebycode](https://github.com/bluebycode) (INCIBE 2018,
+stealth SSH via port-knocking); rewritten in Go under TrustSentinel. Original design
+notes are translated in [`docs/design/`](docs/design).
