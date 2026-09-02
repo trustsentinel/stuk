@@ -36,7 +36,7 @@ class StuksController < ApplicationController
       format.json do
         render json: { verify: true,
                        machine_user: 'zel',
-                       user: 'zel@stuk.com ',
+                       user: 'user@example.com ',
                        domain: 'stuk.com',
                        token: 243_455 }
       end

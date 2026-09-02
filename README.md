@@ -196,5 +196,5 @@ Modernized and rewritten in Go for improved security and performance.
 ## Support
 
 - 🐛 Issues: [GitHub Issues](https://github.com/trustsentinel/stuk/issues)
-- 📧 Email: alvlopez.seguridad@gmail.com
+- 📧 Email: github.com/trustsentinel
 - 💬 Discussions: [GitHub Discussions](https://github.com/trustsentinel/stuk/discussions)
