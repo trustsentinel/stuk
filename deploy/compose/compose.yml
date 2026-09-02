@@ -1,0 +1,25 @@
+# stuk end-to-end demo: a gated SSH gateway (stukd + sshd + firewall) and a client.
+# SSH is blocked by default; a valid knock + TOTP opens it temporarily.
+services:
+  gateway:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile
+    command: /app/gateway-entrypoint.sh
+    cap_add: [NET_ADMIN]          # needed to manage the firewall
+    volumes: [demokeys:/keys]
+    networks: [stuknet]
+
+  client:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile
+    command: /app/client-entrypoint.sh
+    volumes: [demokeys:/keys]
+    networks: [stuknet]
+    depends_on: [gateway]
+
+volumes:
+  demokeys: {}
+networks:
+  stuknet: {}
