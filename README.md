@@ -136,7 +136,7 @@ go test ./...
 go test -cover ./...
 
 # Run specific package
-go test ./pkg/knock
+go test ./internal/knock
 ```
 
 ### Project Structure
@@ -144,13 +144,17 @@ go test ./pkg/knock
 ```
 stuk/
 ├── cmd/
-│   ├── client/         # CLI client application
-│   └── supervisor/     # Supervisor daemon
+│   ├── stuk/           # client: sends the knock sequence + TOTP
+│   └── stukd/          # daemon: detects knocks, verifies TOTP, grants access
+├── internal/
+│   ├── knock/          # ordered knock-sequence detection + senders
+│   ├── grant/          # access provisioning (log/script) + TTL auto-revoke
+│   └── config/         # daemon JSON config
 ├── pkg/
-│   ├── crypto/         # TOTP/cryptography
-│   ├── knock/          # Port knocking logic
-│   └── ssh/            # SSH key management
-├── Dockerfile
+│   └── crypto/         # TOTP (pquerna/otp)
+├── deploy/compose/     # runnable end-to-end Docker Compose demo
+├── docs/               # design notes (docs/design) + Go MVP guide
+├── examples/           # example stukd.json
 ├── go.mod
 └── README.md
 ```
