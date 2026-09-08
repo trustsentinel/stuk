@@ -29,11 +29,7 @@ func main() {
 
 	tracker := knock.NewTracker(cfg.KnockPorts, cfg.Window())
 
-	var g grant.Granter = grant.LogGranter{}
-	if cfg.GrantMode == "script" {
-		g = grant.ScriptGranter{GrantCmd: cfg.GrantCmd, RevokeCmd: cfg.RevokeCmd}
-	}
-	mgr := grant.NewManager(g, cfg.TTL())
+	mgr := grant.NewManager(buildGranter(cfg), cfg.TTL())
 	totpMgr := crypto.NewTOTPManager(cfg.Issuer)
 	armed := &armedSet{m: make(map[string]time.Time), window: cfg.Window()}
 
@@ -79,6 +75,34 @@ func main() {
 	log.Printf("stukd listening on %s: knock=%v auth=%d window=%s ttl=%s grant=%s",
 		cfg.BindAddr, cfg.KnockPorts, cfg.AuthPort, cfg.Window(), cfg.TTL(), cfg.GrantMode)
 	wg.Wait()
+}
+
+// buildGranter assembles the grant backend(s) from cfg.Modes(). Multiple modes
+// (e.g. "iptables,authkeys") are applied together via a MultiGranter.
+func buildGranter(cfg *config.Config) grant.Granter {
+	var gs []grant.Granter
+	for _, mode := range cfg.Modes() {
+		switch mode {
+		case "log":
+			gs = append(gs, grant.LogGranter{})
+		case "script":
+			gs = append(gs, grant.ScriptGranter{GrantCmd: cfg.GrantCmd, RevokeCmd: cfg.RevokeCmd})
+		case "iptables":
+			gs = append(gs, grant.IptablesGranter{SSHPort: cfg.SSHPort, Chain: cfg.IptablesChain})
+		case "authkeys":
+			gs = append(gs, grant.AuthKeysGranter{Dir: cfg.AuthKeysDir})
+		default:
+			log.Printf("unknown grant_mode %q, ignoring", mode)
+		}
+	}
+	switch len(gs) {
+	case 0:
+		return grant.LogGranter{}
+	case 1:
+		return gs[0]
+	default:
+		return grant.MultiGranter(gs)
+	}
 }
 
 // armedSet tracks IPs that just completed the knock sequence and may now auth.

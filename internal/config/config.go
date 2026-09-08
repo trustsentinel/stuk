@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -17,9 +18,14 @@ type Config struct {
 	Issuer        string `json:"issuer"`
 	TOTPSecret    string `json:"totp_secret"`
 	TOTPWindow    int    `json:"totp_window"`
-	GrantMode     string `json:"grant_mode"` // "log" or "script"
-	GrantCmd      string `json:"grant_cmd"`
-	RevokeCmd     string `json:"revoke_cmd"`
+	// GrantMode is a comma-separated list of backends applied together, any of:
+	// "log", "script", "iptables", "authkeys".
+	GrantMode     string `json:"grant_mode"`
+	GrantCmd      string `json:"grant_cmd"`      // script mode
+	RevokeCmd     string `json:"revoke_cmd"`     // script mode
+	SSHPort       int    `json:"ssh_port"`       // iptables mode (default 22)
+	IptablesChain string `json:"iptables_chain"` // iptables mode (default INPUT)
+	AuthKeysDir   string `json:"authkeys_dir"`   // authkeys mode (default /run/stuk/keys)
 }
 
 func Load(path string) (*Config, error) {
@@ -74,3 +80,18 @@ func (c *Config) validate() error {
 
 func (c *Config) Window() time.Duration { return time.Duration(c.WindowSeconds) * time.Second }
 func (c *Config) TTL() time.Duration    { return time.Duration(c.TTLSeconds) * time.Second }
+
+// Modes returns the configured grant backends (comma-separated), lowercased and
+// trimmed; defaults to ["log"].
+func (c *Config) Modes() []string {
+	var modes []string
+	for _, m := range strings.Split(c.GrantMode, ",") {
+		if s := strings.ToLower(strings.TrimSpace(m)); s != "" {
+			modes = append(modes, s)
+		}
+	}
+	if len(modes) == 0 {
+		return []string{"log"}
+	}
+	return modes
+}

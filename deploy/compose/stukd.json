@@ -7,7 +7,7 @@
   "issuer": "stuk",
   "totp_secret": "JBSWY3DPEHPK3PXP",
   "totp_window": 1,
-  "grant_mode": "script",
-  "grant_cmd": "/app/grant.sh {ip}",
-  "revoke_cmd": "/app/revoke.sh {ip}"
+  "grant_mode": "iptables,authkeys",
+  "ssh_port": 22,
+  "authkeys_dir": "/run/stuk/keys"
 }

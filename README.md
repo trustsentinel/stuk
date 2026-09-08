@@ -1,5 +1,6 @@
 # Stuk — Secure SSH Access Manager
 
+[![CI](https://github.com/trustsentinel/stuk/actions/workflows/ci.yml/badge.svg)](https://github.com/trustsentinel/stuk/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -73,7 +74,29 @@ The daemon reads a JSON config (see [`examples/stukd.json`](examples/stukd.json)
 | `window_seconds` | max time to complete the sequence |
 | `ttl_seconds` | how long access stays open |
 | `totp_secret` | base32 TOTP secret |
-| `grant_mode` | `log` (dry run) or `script` (runs `grant_cmd` / `revoke_cmd` with `{ip}` / `{pubkey}`) |
+| `grant_mode` | comma-separated backends (below): `log`, `script`, `iptables`, `authkeys` |
+| `ssh_port` / `iptables_chain` | `iptables` backend: port to open (default 22) and chain (default `INPUT`) |
+| `authkeys_dir` | `authkeys` backend: directory of granted keys (default `/run/stuk/keys`) |
+
+### Grant backends
+On a valid knock+TOTP, stukd provisions access for `ttl_seconds` then auto-revokes.
+`grant_mode` selects one or more backends (applied together):
+
+- **`log`** — dry run; logs only (default).
+- **`script`** — runs `grant_cmd` / `revoke_cmd` with `{ip}` / `{pubkey}` substituted.
+- **`iptables`** — natively inserts `-I <chain> -p tcp --dport <ssh_port> -s <ip> -j ACCEPT`
+  on grant and deletes it on revoke (needs `NET_ADMIN`). The firewall gate.
+- **`authkeys`** — writes the client's public key into `authkeys_dir` for the grant's
+  lifetime. Point sshd at [`stuk-authkeys`](cmd/stuk-authkeys) so the key works
+  *only* while granted — the key gate, on top of the firewall:
+  ```
+  # /etc/ssh/sshd_config
+  AuthorizedKeysCommand      /usr/local/bin/stuk-authkeys -dir /run/stuk/keys
+  AuthorizedKeysCommandUser  root
+  ```
+
+Combine them, e.g. `"grant_mode": "iptables,authkeys"` — the runnable demo in
+[`deploy/compose/`](deploy/compose) uses exactly this (network **and** key gated).
 
 ## Development
 ```bash
@@ -87,10 +110,11 @@ go test ./...
 stuk/
 ├── cmd/
 │   ├── stuk/           # client: sends the knock sequence + TOTP
-│   └── stukd/          # daemon: detects knocks, verifies TOTP, grants access
+│   ├── stukd/          # daemon: detects knocks, verifies TOTP, grants access
+│   └── stuk-authkeys/  # sshd AuthorizedKeysCommand: prints currently-granted keys
 ├── internal/
 │   ├── knock/          # ordered knock-sequence detection + senders
-│   ├── grant/          # access provisioning (log/script) + TTL auto-revoke
+│   ├── grant/          # backends (log/script/iptables/authkeys) + TTL auto-revoke
 │   └── config/         # daemon JSON config
 ├── pkg/crypto/         # TOTP (pquerna/otp)
 ├── deploy/compose/     # runnable end-to-end Docker demo
