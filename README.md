@@ -1,7 +1,7 @@
 # Stuk — Secure SSH Access Manager
 
 [![CI](https://github.com/trustsentinel/stuk/actions/workflows/ci.yml/badge.svg)](https://github.com/trustsentinel/stuk/actions/workflows/ci.yml)
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 SSH access management using **port knocking** and **TOTP/2FA**. SSH stays closed
@@ -18,16 +18,19 @@ access is granted temporarily and revoked automatically.
 
 ## Architecture
 
-![stuk architecture](resources/stuk-architecture.png)
-
 A client obtains a time-based token (e.g. Google Authenticator), then knocks with
 `stuk`. The **daemon** (`stukd`) verifies the TOTP code and provisions temporary
 access to the target servers — access that expires automatically.
 
-```
-┌─────────┐     Knock      ┌────────────┐     Auth      ┌─────────────┐
-│ Client  │ ─────────────> │   stukd    │ ───────────> │ SSH Servers │
-└─────────┘   TOTP token   └────────────┘  Grant (TTL)  └─────────────┘
+```mermaid
+flowchart LR
+  client["client<br/>(stuk)"]
+  daemon["stukd<br/>verifies knock + TOTP · grants TTL access"]
+  ssh["SSH servers<br/>(closed by default)"]
+
+  client -->|"knock sequence (UDP)"| daemon
+  client -->|"TOTP token"| daemon
+  daemon -->|"grant, auto-revoked after TTL"| ssh
 ```
 
 ## Quick start
@@ -135,6 +138,16 @@ stuk/
 - **Roadmap:** link-layer capture so knock ports stay fully closed (true stealth),
   encrypted auth channel, per-user secrets, and SSH-CA short-lived certificates —
   see [TASKS](https://github.com/trustsentinel) / `docs/`.
+
+## TrustSentinel
+Part of [TrustSentinel](https://trustsentinel.eu) — secure connectivity and
+network-intelligence tooling by Álvaro López.
+
+- **[netso](https://github.com/trustsentinel/netso)** — secure-networking platform (SSI + end-to-end encryption)
+- **[stk](https://github.com/trustsentinel/stk)** — browser-based remote shell broker
+- **[stuk](https://github.com/trustsentinel/stuk)** — SSH access gating (port-knock + MFA)  ·  _this repo_
+- **[argos](https://github.com/trustsentinel/argos)** — P2P blockchain network scanning
+- **[eth-rlp](https://github.com/trustsentinel/eth-rlp)** — RLP codec for Ethereum discv4
 
 ## License
 MIT — see [LICENSE](LICENSE).
