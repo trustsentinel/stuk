@@ -4,6 +4,13 @@
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+<p align="center">
+  <a href="https://www.incibe.es/"><img src="https://img.shields.io/badge/INCIBE-National_Cybersecurity_Competition_2018-a67c00?style=for-the-badge&labelColor=1f1b2e" alt="INCIBE National Cybersecurity Competition 2018"></a>
+</p>
+<p align="center">
+  <sub>🏆 <b>INCIBE National Cybersecurity Competition 2018</b> — stealth SSH via port-knocking.</sub>
+</p>
+
 SSH access management using **port knocking** and **TOTP/2FA**. SSH stays closed
 until a client sends the right knock sequence and a valid time-based code — then
 access is granted temporarily and revoked automatically.
