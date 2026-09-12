@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <p align="center">
-  <a href="https://www.incibe.es/"><img src="https://img.shields.io/badge/INCIBE-National_Cybersecurity_Competition_2018-a67c00?style=for-the-badge&labelColor=1f1b2e" alt="INCIBE National Cybersecurity Competition 2018"></a>
+  <a href="https://www.incibe.es/"><img src="docs/assets/img/incibe.png" alt="INCIBE — Instituto Nacional de Ciberseguridad" height="64"></a>
 </p>
 <p align="center">
   <sub>🏆 <b>INCIBE National Cybersecurity Competition 2018</b> — stealth SSH via port-knocking.</sub>
